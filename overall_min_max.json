@@ -1,0 +1,50 @@
+{
+    "Power": {
+        "min": 50.1,
+        "max": 1999.7
+    },
+    "Pressure": {
+        "min": 0.010002,
+        "max": 0.069985
+    },
+    "Point1_EtchRateO": {
+        "min": 0.033118565,
+        "max": 0.363
+    },
+    "Point2_EtchRateO": {
+        "min": 0.031444703,
+        "max": 0.367
+    },
+    "Point3_EtchRateO": {
+        "min": 0.028933909,
+        "max": 0.368
+    },
+    "Point4_EtchRateO": {
+        "min": 0.025426769,
+        "max": 0.366
+    },
+    "Point5_EtchRateO": {
+        "min": 0.022238459,
+        "max": 0.361
+    },
+    "Point6_EtchRateO": {
+        "min": 0.01657921,
+        "max": 0.346
+    },
+    "Point7_EtchRateO": {
+        "min": 0.010441714,
+        "max": 0.322
+    },
+    "Point8_EtchRateO": {
+        "min": 0.005061441,
+        "max": 0.286
+    },
+    "Point9_EtchRateO": {
+        "min": 0.001370973,
+        "max": 0.242
+    },
+    "Point10_EtchRateO": {
+        "min": 0.000101229,
+        "max": 0.205
+    }
+}
