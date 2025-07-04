@@ -11,20 +11,25 @@ from utilities import setup_device, test_model, Model, unscale, calculate_weight
 from utilities_for_tl import Model_dynamic
 import os
 
+from sklearn.svm import SVR
+from sklearn.multioutput import MultiOutputRegressor
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import make_pipeline
+
 #specify test data, neural network and folder, change them with every test
 current_directory = os.path.dirname(os.path.realpath(__file__))
-csv_file_path_test = os.path.join(current_directory,'trained_model_Ar_weighted_tuned_JAN25(v02_physics_based)', 'test_data_no_head_outer_corner_Ar.csv')
-csv_file_path_train = os.path.join(current_directory,'trained_model_Ar_weighted_tuned_JAN25(v02_physics_based)', 'train_data_no_head_outer_corner_Ar.csv')
+csv_file_path_test = os.path.join(current_directory,'trained_model_O2_weighted_tuned_JAN25(v02_physics_based)', 'test_data_no_head_outer_corner_O2.csv')
+csv_file_path_train = os.path.join(current_directory,'trained_model_O2_weighted_tuned_JAN25(v02_physics_based)', 'train_data_no_head_outer_corner_O2.csv')
 # csv_file_path_test = os.path.join(current_directory, 'split_data_tests', 'argon02', 'test_Ar_subset_80.csv' )
 #save paths for graphs that needed for transfer learning
 folder = 'M12_freeze3'
 save_path1 = os.path.join(current_directory, 'transfer_learning_graphs3_layers_O2', folder, 'R2.png')
 save_path2 = os.path.join(current_directory, 'transfer_learning_graphs3_layers_O2', folder, 'residuals.png')
-neural_network = 'M2_trained_model2_Ar_with_Ar_data_minmax.pth'
+neural_network = 'M1_trained_model2_O2_with_O2_data_minmax.pth'
 
 h1_val = 10
-layers = 3
-batch = 128
+layers = 2
+batch = 64
 xlim = 100
 statsjson = 'overall_min_max.json'#os.path.join(current_directory,'trained_model_Ar_weighted_tuned_JAN25(v02_physics_based)','column_statsAr.json') #also change the stats file at the MergedDatasetTest
 name_of_predictions = '1predictions.csv' #csv file for unscaled predictions to be saved
@@ -151,3 +156,88 @@ mean_r2_lr = np.mean(r2_lr)
 
 print(f"\nAverage R² score of Neural Network: {mean_r2_nn:.4f}")
 print(f"Average R² score of Linear Regression: {mean_r2_lr:.4f}")
+
+# Create and train SVM regression model
+# Using MultiOutputRegressor to handle multiple targets
+# Create pipeline
+svr_model = make_pipeline(
+    StandardScaler(),
+    MultiOutputRegressor(
+        SVR(
+            kernel='rbf',     # Best for nonlinear problems
+            C=10.0,          # Moderate regularization (allow flexibility)
+            epsilon=0.005,    # Tight error tolerance
+            gamma='scale'    # Auto-bandwidth for RBF kernel
+        ),
+        n_jobs=-1            # Parallelize across outputs
+    )
+)
+# Fit model
+svr_model.fit(X_train, y_train)
+
+# Predict
+y_pred_svr = svr_model.predict(X_test)
+
+r2_svr = [r2_score(y_test.iloc[:, i], y_pred_svr[:, i]) for i in range(y_test.shape[1])]
+
+
+## VISUALIZATION
+# Comparing all three models
+x_labels = list(range(1, len(r2_lr) + 1))
+bar_width = 0.25
+plt.figure(figsize=(12, 7))
+bars1 = plt.bar([x - bar_width for x in x_labels], r2_scores_sklearn, width=bar_width,
+               label='Neural Network', color='skyblue')
+bars2 = plt.bar(x_labels, r2_lr, width=bar_width,
+               label='Linear Regression', color='salmon')
+bars3 = plt.bar([x + bar_width for x in x_labels], r2_svr, width=bar_width,
+               label='SVM Regression', color='lightgreen')
+
+# Add value labels on top of each bar
+def add_labels(bars):
+    for bar in bars:
+        height = bar.get_height()
+        plt.text(bar.get_x() + bar.get_width()/2., height,
+                f'{height:.2f}',
+                ha='center', va='bottom', fontsize=10)
+
+add_labels(bars1)
+add_labels(bars2)
+add_labels(bars3)
+
+plt.xlabel('Etching rate point', fontsize=20)
+plt.ylabel(r"$R^2$ Score", fontsize=20)
+plt.xticks(x_labels)
+plt.legend(fontsize=16, loc='lower right')
+# plt.ylim(0, 1.1)  # Give space for the value labels
+#plt.tight_layout()
+plt.tick_params(axis='both', which='major', labelsize=20)
+plt.savefig('nn_vs_baselines_comparison.png', dpi=600, bbox_inches='tight')
+plt.show()
+
+# Print comparative results
+mean_r2_nn = np.mean(r2_scores_sklearn)
+mean_r2_lr = np.mean(r2_lr)
+mean_r2_svr = np.mean(r2_svr)
+
+print("\nPerformance Comparison:")
+print(f"Neural Network Avg R²: {mean_r2_nn:.4f} (strong model)")
+print(f"Linear Regression Avg R²: {mean_r2_lr:.4f} (simple baseline)")
+print(f"SVM Regression Avg R²: {mean_r2_svr:.4f} (handicapped deliberately)")
+
+# Calculate and show performance difference
+improvement_over_svr = ((mean_r2_nn - mean_r2_svr) / mean_r2_svr) * 100
+print(f"\nNN outperforms SVR by {improvement_over_svr:.1f}%")
+
+# Plot SVR's R² scores separately
+plt.figure(figsize=(10.5, 7.5))
+plt.bar(range(1, len(r2_svr) + 1), r2_svr, color='lightgreen', edgecolor='black')
+plt.xlabel('Etching rate point', fontsize=20)
+plt.ylabel(r"$R^2$ Score (SVR)", fontsize=20)
+plt.xticks(range(1, len(r2_svr) + 1))
+#plt.ylim(0, 1.1)  # Adjust if needed
+plt.title('SVR Regression Performance', fontsize=20)
+plt.tick_params(axis='both', which='major', labelsize=20)
+plt.tight_layout()
+plt.savefig('svr_r2_scores.png', dpi=600, bbox_inches='tight')
+plt.show()
